@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente LangGraph</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --dark-blue: #1a2133;
+            --medium-blue: #293346;
+            --accent-blue: #3b5998;
+            --light-blue: #4267b2;
+            --lightest-blue: #eef1f8;
+            --light-gray: #f5f7fa;
+            --text-light: #ffffff;
+            --text-dark: #333340;
+            --border-color: #d0d7e6;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            background-color: var(--light-gray);
+            color: var(--text-dark);
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--dark-blue);
+            color: var(--text-light);
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            margin: 0;
+            font-weight: 500;
+            font-size: 28px;
+            border-left: 4px solid var(--light-blue);
+            padding-left: 15px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-top: 3px solid var(--medium-blue);
+        }
+
+        .section-title {
+            color: var(--dark-blue);
+            font-size: 20px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        #status {
+            background-color: var(--medium-blue);
+            color: var(--text-light);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+        
+        #interrupt-message, #final-report {
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            background-color: var(--lightest-blue);
+            border-radius: 6px;
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+        
+        #final-report {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        button {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: var(--light-blue);
+        }
+        
+        button:focus {
+            outline: 3px solid rgba(59, 89, 152, 0.3);
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: inherit;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.2);
+        }
+        
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        
+        hr {
+            border: none;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 25px 0;
+        }
+        
+        .button-secondary {
+            background-color: transparent;
+            color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+        }
+        
+        .button-secondary:hover {
+            background-color: rgba(59, 89, 152, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Agente de Investigación Especializada</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="status">Esperando inicio...</div>
+        
+        <div id="start-form" class="card">
+            <h2 class="section-title">Nueva investigación</h2>
+            <label for="topic">Introduce el tema a investigar:</label>
+            <input type="text" id="topic" name="topic" placeholder="Ej: Tendencias en inteligencia artificial" required>
+            <button onclick="startAgent()">Iniciar Investigación</button>
+        </div>
+
+        <div id="interrupt-controls" class="card hidden">
+            <h2 class="section-title">Plan Propuesto</h2>
+            <div id="interrupt-message"></div>
+            <button onclick="approvePlan()">Aprobar Plan</button>
+            <hr>
+            <label for="feedback">O proporciona feedback para mejorar el plan:</label>
+            <textarea id="feedback" name="feedback" placeholder="Sugiere modificaciones o añade requisitos específicos..."></textarea>
+            <button onclick="submitFeedback()">Enviar Feedback</button>
+        </div>
+
+        <div id="final-report-container" class="card hidden">
+            <h2 class="section-title">Reporte Final</h2>
+            <div id="final-report"></div>
+            <button onclick="resetUI()">Nueva Investigación</button>
+        </div>
+    </div>
+
+    <script>
+        // Guarda el ID de la conversación actual
+        let currentThreadId = null;
+        // Define la URL base de tu API. Ajústala si es necesario (ej. para producción)
+        // Si tu backend y frontend se sirven desde el mismo dominio (como en Vercel),
+        // puedes usar rutas relativas como '/api/start'
+        const API_BASE_URL = ''; // Vacío para rutas relativas
+
+        const startForm = document.getElementById('start-form');
+        const statusDiv = document.getElementById('status');
+        const interruptControls = document.getElementById('interrupt-controls');
+        const interruptMessageDiv = document.getElementById('interrupt-message');
+        const feedbackInput = document.getElementById('feedback');
+        const finalReportContainer = document.getElementById('final-report-container');
+        const finalReportDiv = document.getElementById('final-report');
+
+        async function startAgent() {
+            const topic = document.getElementById('topic').value;
+            if (!topic) {
+                alert('Por favor, introduce un tema.');
+                return;
+            }
+
+            setStatus('Iniciando investigación...');
+            hideElement(interruptControls);
+            hideElement(finalReportContainer);
+            clearMessages();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: topic })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || `Error ${response.status}`);
+                }
+
+                currentThreadId = data.thread_id;
+                if (data.interrupt_message) {
+                    interruptMessageDiv.textContent = data.interrupt_message;
+                    showElement(interruptControls);
+                    setStatus(`Investigación iniciada. Esperando tu acción.`);
+                    hideElement(startForm); // Oculta el form inicial
+                } else {
+                    // Manejar el caso donde no hay interrupción inicial (si es posible)
+                     setStatus(`Investigación iniciada. Procesando...`);
+                     // Podrías necesitar hacer polling o usar WebSockets para saber cuándo llega la interrupción
+                }
+
+            } catch (error) {
+                console.error("Error al iniciar:", error);
+                setStatus(`Error al iniciar: ${error.message}`);
+                showElement(startForm); // Muestra el form de nuevo si falla
+            }
+        }
+
+        async function resumeAgent(payload) {
+            if (!currentThreadId) {
+                alert('No hay una investigación activa.');
+                return;
+            }
+
+            setStatus('Procesando tu respuesta...');
+            hideElement(interruptControls); // Oculta mientras procesa
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/resume`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ thread_id: currentThreadId, ...payload })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || `Error ${response.status}`);
+                }
+
+                if (data.final_report) {
+                    finalReportDiv.innerHTML = marked.parse(data.final_report || '*No se recibió el reporte final.*');
+                    showElement(finalReportContainer);
+                    setStatus(`Investigación completada (ID: ${currentThreadId}).`);
+                    // Opcional: resetear para nueva investigación
+                    // currentThreadId = null;
+                    // showElement(startForm);
+                } else if (data.interrupt_message) {
+                    interruptMessageDiv.textContent = data.interrupt_message;
+                    showElement(interruptControls); // Muestra de nuevo para la siguiente interacción
+                    setStatus(`Plan actualizado (ID: ${currentThreadId}). Esperando tu acción.`);
+                    feedbackInput.value = ''; // Limpia el campo de feedback
+                } else {
+                     // Caso inesperado
+                     setStatus(`Proceso terminado inesperadamente para ${currentThreadId}.`);
+                     console.warn("Respuesta inesperada del servidor:", data);
+                     // Podrías intentar mostrar el form de inicio de nuevo
+                     // showElement(startForm);
+                     // currentThreadId = null;
+                }
+
+            } catch (error) {
+                console.error("Error al reanudar:", error);
+                setStatus(`Error al procesar tu respuesta: ${error.message}`);
+                // Decide qué mostrar en caso de error (¿volver a mostrar controles?)
+                // showElement(interruptControls); // Quizás permitir reintentar
+            }
+        }
+
+        function approvePlan() {
+            resumeAgent({ approval: true });
+        }
+
+        function submitFeedback() {
+            const feedback = feedbackInput.value;
+            if (!feedback) {
+                alert('Por favor, introduce tu feedback.');
+                return;
+            }
+            resumeAgent({ feedback: feedback });
+        }
+
+        // Función para resetear la UI y comenzar nueva investigación 
+        function resetUI() {
+            currentThreadId = null;
+            hideElement(finalReportContainer);
+            showElement(startForm);
+            document.getElementById('topic').value = '';
+            setStatus('Esperando inicio...');
+            window.location.reload();
+        }
+
+        // --- Funciones de utilidad UI ---
+        function setStatus(message) {
+            statusDiv.textContent = message;
+        }
+
+        function clearMessages() {
+             interruptMessageDiv.textContent = '';
+             finalReportDiv.textContent = '';
+             feedbackInput.value = '';
+        }
+
+        function showElement(element) {
+            element.classList.remove('hidden');
+        }
+
+        function hideElement(element) {
+            element.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
