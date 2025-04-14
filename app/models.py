@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 class StartRequest(BaseModel):
     topic: str = Field(..., description="El tema para iniciar la investigación del agente")
+    searcher: str = Field(..., description="El buscador en el cual se hará la investigación del agente")
 
 class StartResponse(BaseModel):
     thread_id: str

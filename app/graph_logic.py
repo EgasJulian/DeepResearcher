@@ -57,7 +57,7 @@ REPORT_STRUCTURE = """Use this structure to create a report on the user-provided
 Introduction (no research needed)
 Brief overview of the topic area
 Main Body Sections:
-Each section should focus on a sub-topic of the user-provided topic
+Each section should focus on a sub-topic of the user-provided topic (maximum 3 sections).
 Conclusion
 Aim for 1 structural element (either a list of table) that distills the main body sections
 Provide a concise summary of the report"""
@@ -71,12 +71,15 @@ DEFAULT_THREAD_CONFIG = {
     "report_structure": REPORT_STRUCTURE,
 }
 # --- Funciones Asíncronas para Interactuar con el Grafo ---
-async def start_graph_execution(topic: str) -> tuple[str, str | None]:
+async def start_graph_execution(topic: str, searcher: str) -> tuple[str, str | None]:
     """
     Inicia la ejecución del grafo con un nuevo tema y thread_id.
     Retorna (thread_id, mensaje_interrupcion) o (thread_id, None) si no hay interrupción inicial.
     """
     thread_id = str(uuid.uuid4())
+    DEFAULT_THREAD_CONFIG["search_api"] = searcher # Cambia el buscador según la solicitud
+    if (searcher == "exa"):
+        DEFAULT_THREAD_CONFIG["search_api_config"] = {"num_results": 2}
     thread_config = {"configurable": {"thread_id": thread_id, **DEFAULT_THREAD_CONFIG}}
     interrupt_message = None
     print(f"Starting graph for topic: {topic} with thread_id: {thread_id}")
@@ -110,7 +113,7 @@ async def resume_graph_execution(thread_id: str, resume_input: bool | str) -> tu
     command_to_resume = Command(resume=resume_input)
     next_interrupt_message = None
     final_report = None
-    print(f"Resuming graph for thread_id: {thread_id} with input type: {type(resume_input)}")
+    print(f"Resuming graph for thread_id: {thread_id} with input type: {type(resume_input)} y el buscador {DEFAULT_THREAD_CONFIG['search_api']}")
     try:
         async for event in graph.astream(command_to_resume, thread_config, stream_mode="updates"):
             print(f"Resume Event received: {event}") # Debugging

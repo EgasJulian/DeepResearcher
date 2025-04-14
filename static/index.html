@@ -123,7 +123,7 @@
             color: var(--text-dark);
         }
         
-        input[type="text"], textarea {
+        input[type="text"], textarea, select {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border-color);
@@ -134,7 +134,15 @@
             box-sizing: border-box;
         }
         
-        input[type="text"]:focus, textarea:focus {
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333340' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+        
+        input[type="text"]:focus, textarea:focus, select:focus {
             border-color: var(--accent-blue);
             outline: none;
             box-shadow: 0 0 0 3px rgba(59, 89, 152, 0.2);
@@ -161,6 +169,50 @@
         .button-secondary:hover {
             background-color: rgba(59, 89, 152, 0.1);
         }
+        
+        .search-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .search-option {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .search-option:hover {
+            border-color: var(--light-blue);
+            background-color: var(--lightest-blue);
+        }
+        
+        .search-option.selected {
+            border-color: var(--accent-blue);
+            background-color: var(--lightest-blue);
+            box-shadow: 0 0 0 2px rgba(59, 89, 152, 0.2);
+        }
+        
+        .search-option img {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+        
+        .search-option.selected img {
+            opacity: 1;
+        }
+        
+        .search-option h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -175,6 +227,24 @@
         
         <div id="start-form" class="card">
             <h2 class="section-title">Nueva investigación</h2>
+            
+            <label for="search-engine">Selecciona un buscador:</label>
+            <div class="search-options">
+                <div class="search-option" data-value="tavily" onclick="selectSearchEngine(this)">
+                    <img src="/tavily.png" alt="Icono Tavily">
+                    <h3>Tavily</h3>
+                </div>                
+                <div class="search-option" data-value="duckduckgo" onclick="selectSearchEngine(this)">
+                    <img src="/duck.png" alt="Icono DuckDuckGo">
+                    <h3>DuckDuckGo</h3>
+                </div>
+                <div class="search-option selected" data-value="exa" onclick="selectSearchEngine(this)">
+                    <img src="/exa.png" alt="Icono Exa">
+                    <h3>Exa</h3>
+                </div>
+            </div>
+            <input type="hidden" id="search-engine" value="duckduckgo">
+            
             <label for="topic">Introduce el tema a investigar:</label>
             <input type="text" id="topic" name="topic" placeholder="Ej: Tendencias en inteligencia artificial" required>
             <button onclick="startAgent()">Iniciar Investigación</button>
@@ -212,6 +282,20 @@
         const feedbackInput = document.getElementById('feedback');
         const finalReportContainer = document.getElementById('final-report-container');
         const finalReportDiv = document.getElementById('final-report');
+        const searchEngineInput = document.getElementById('search-engine');
+
+        function selectSearchEngine(element) {
+            // Elimina la clase selected de todos los elementos
+            document.querySelectorAll('.search-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Agrega la clase selected al elemento clickeado
+            element.classList.add('selected');
+            
+            // Actualiza el valor del input hidden
+            searchEngineInput.value = element.getAttribute('data-value');
+        }
 
         async function startAgent() {
             const topic = document.getElementById('topic').value;
@@ -220,6 +304,8 @@
                 return;
             }
 
+            const searchEngine = searchEngineInput.value;
+            
             setStatus('Iniciando investigación...');
             hideElement(interruptControls);
             hideElement(finalReportContainer);
@@ -229,7 +315,10 @@
                 const response = await fetch(`${API_BASE_URL}/api/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic: topic })
+                    body: JSON.stringify({ 
+                        topic: topic,
+                        searcher: searchEngine
+                    })
                 });
 
                 const data = await response.json();
@@ -328,7 +417,6 @@
             showElement(startForm);
             document.getElementById('topic').value = '';
             setStatus('Esperando inicio...');
-            window.location.reload();
         }
 
         // --- Funciones de utilidad UI ---

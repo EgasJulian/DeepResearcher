@@ -33,8 +33,8 @@ async def start_agent(request: StartRequest):
     Endpoint para iniciar una nueva ejecución del agente con un tema.
     """
     try:
-        print(f"Received start request for topic: {request.topic}")
-        thread_id, interrupt_message = await start_graph_execution(request.topic)
+        print(f"Received start request for topic: {request.topic, request.searcher}")
+        thread_id, interrupt_message = await start_graph_execution(request.topic, request.searcher)
         interrupt_message = translate_to_spanish(interrupt_message)
         if interrupt_message is None:
              # Esto no debería pasar según tu descripción, pero manejémoslo
