@@ -112,7 +112,7 @@ async def start_graph_execution(topic: str, searcher: str) -> tuple[str, str | N
     thread_id = str(uuid.uuid4())
     DEFAULT_THREAD_CONFIG["search_api"] = searcher # Cambia el buscador según la solicitud
     if (searcher == "exa"):
-        DEFAULT_THREAD_CONFIG["search_api_config"] = {"num_results": 2}
+        DEFAULT_THREAD_CONFIG["search_api_config"] = {"num_results": 1}
     thread_config = {"configurable": {"thread_id": thread_id, **DEFAULT_THREAD_CONFIG}}
     interrupt_message = None
     print(f"Starting graph for topic: {translate_to_english(topic)} with thread_id: {thread_id}")
