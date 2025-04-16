@@ -42,6 +42,37 @@ def translate_to_spanish(text: str) -> str:
     except Exception as e:
         print(f"Error during translation: {e}")
         raise RuntimeError("Failed to translate text to Spanish.") from e
+
+def translate_to_english(text: str) -> str:
+    """
+    Traduce un texto al inglés utilizando el modelo GPT-4o de OpenAI.
+    
+    Args:
+        text (str): El texto en español que se desea traducir.
+    
+    Returns:
+        str: El texto traducido al inglés
+    """
+    try:        
+        
+        # Crear una instancia del cliente
+        client = OpenAI()
+        
+        # Llama a la API de OpenAI para realizar la traducción
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a translation assistant. Translate all input to English without changing anything."},
+                {"role": "user", "content": text}
+            ]
+        )
+        
+        # Extrae la traducción del contenido de la respuesta
+        translated_text = response.choices[0].message.content
+        return translated_text
+    except Exception as e:
+        print(f"Error during translation: {e}")
+        raise RuntimeError("Failed to translate text to Spanish.") from e
     
 # --- Configuración del Grafo ---
 memory = MemorySaver()
@@ -57,7 +88,9 @@ REPORT_STRUCTURE = """Use this structure to create a report on the user-provided
 Introduction (no research needed)
 Brief overview of the topic area
 Main Body Sections:
-Each section should focus on a sub-topic of the user-provided topic (maximum 3 sections).
+Include a maximum of 3 sections, each focusing on a sub-topic of the user-provided topic
+AT LEAST ONE section must require research
+The remaining sections can be developed with existing knowledge or may also require research depending on the topic
 Conclusion
 Aim for 1 structural element (either a list of table) that distills the main body sections
 Provide a concise summary of the report"""
@@ -82,9 +115,9 @@ async def start_graph_execution(topic: str, searcher: str) -> tuple[str, str | N
         DEFAULT_THREAD_CONFIG["search_api_config"] = {"num_results": 2}
     thread_config = {"configurable": {"thread_id": thread_id, **DEFAULT_THREAD_CONFIG}}
     interrupt_message = None
-    print(f"Starting graph for topic: {topic} with thread_id: {thread_id}")
+    print(f"Starting graph for topic: {translate_to_english(topic)} with thread_id: {thread_id}")
     try:
-        async for event in graph.astream({"topic": topic}, thread_config, stream_mode="updates"):
+        async for event in graph.astream({"topic": translate_to_english(topic)}, thread_config, stream_mode="updates"):
             print(f"Event received: {event}") # Debugging
             if '__interrupt__' in event:
                 interrupt_value = event['__interrupt__'][0].value
@@ -110,10 +143,14 @@ async def resume_graph_execution(thread_id: str, resume_input: bool | str) -> tu
             (None, reporte_final) si la ejecución termina.
     """
     thread_config = {"configurable": {"thread_id": thread_id, **DEFAULT_THREAD_CONFIG}}
+    if type(resume_input) == str:
+        # Si es un feedback, lo transformamos a un comando
+        resume_input = translate_to_english(resume_input)
+        print(f"Feedback received: {resume_input}")
     command_to_resume = Command(resume=resume_input)
     next_interrupt_message = None
     final_report = None
-    print(f"Resuming graph for thread_id: {thread_id} with input type: {type(resume_input)} y el buscador {DEFAULT_THREAD_CONFIG['search_api']}")
+    print(f"Resuming graph for thread_id: {thread_id} with input type: {resume_input} y el buscador {DEFAULT_THREAD_CONFIG['search_api']}")
     try:
         async for event in graph.astream(command_to_resume, thread_config, stream_mode="updates"):
             print(f"Resume Event received: {event}") # Debugging
